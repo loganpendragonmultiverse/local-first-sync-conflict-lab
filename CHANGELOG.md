@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 - 2026-09-07
+
+- Fix deletion-versus-null handling and add visual conflict choices, hash-bound replay and opt-in keyed-array identity contracts.
+- Added regression coverage for the audited behavior and invalid inputs.
+
 ## 1.0.0 - 2026-08-03
 
 - Added three-way JSON comparison with same-change, local-only, remote-only, and both-changed classifications.
