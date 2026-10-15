@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--replay", type=Path, help="Hash-bound manual conflict choices exported from HTML"
     )
+    parser.add_argument(
+        "--redact-values",
+        action="store_true",
+        help="omit source values and merged data from JSON, Markdown and HTML review reports",
+    )
     args = parser.parse_args(argv)
     try:
         base, local, remote = _load(args.base), _load(args.local), _load(args.remote)
@@ -63,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             args.remote_updated_at,
             choices=choices,
             keyed_arrays=keyed,
+            redact_values=args.redact_values,
         )
         rendered = (
             render_json(report)

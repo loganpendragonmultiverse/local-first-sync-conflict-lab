@@ -13,7 +13,9 @@ def render_html(report: dict[str, Any]) -> str:
             + label.title()
             + "</h3><pre>"
             + escape(
-                json.dumps(item[label], indent=2)
+                "[REDACTED — present]"
+                if report.get("report_mode") == "value-redacted" and item["presence"][label]
+                else json.dumps(item[label], indent=2)
                 if item["presence"][label]
                 else "[DELETED / absent]"
             )
@@ -23,6 +25,11 @@ def render_html(report: dict[str, Any]) -> str:
         parts.append(
             f'<article><h2>{escape(item["path"] or "/")}</h2><div class="triple">{values}</div><label>Resolution for {escape(item["path"] or "/")} <select data-index="{index}"><option value="">Unresolved</option><option value="local">Choose local</option><option value="remote">Choose remote</option></select></label></article>'
         )
+    privacy = (
+        "Value-redacted review report; not merged application data. Paths, keyed identities, choices and fingerprints remain visible."
+        if report.get("report_mode") == "value-redacted"
+        else "This report contains snapshot values: review before sharing."
+    )
     payload = (
         json.dumps(report, ensure_ascii=True)
         .replace("<", "\\u003c")
@@ -30,7 +37,9 @@ def render_html(report: dict[str, Any]) -> str:
         .replace("&", "\\u0026")
     )
     return (
-        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sync conflict review</title><style>body{font:17px system-ui;background:#111e28;color:#eff6fa;padding:22px;max-width:1150px;margin:auto;line-height:1.6}article{border:1px solid #688699;border-radius:12px;padding:18px;margin:20px 0}.triple{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#203442;padding:14px}button,select{font:inherit;padding:10px}h2{overflow-wrap:anywhere}@media(max-width:650px){.triple{grid-template-columns:1fr}body{padding:12px}}output{display:block;margin:14px 0}</style><h1>Three-way conflict review</h1><p>Choose a side for each conflict. Download a replay plan, then use --replay with the same source snapshots. No source is edited; this is a local merge simulation. This report contains snapshot values: review before sharing.</p>'
+        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sync conflict review</title><style>body{font:17px system-ui;background:#111e28;color:#eff6fa;padding:22px;max-width:1150px;margin:auto;line-height:1.6}article{border:1px solid #688699;border-radius:12px;padding:18px;margin:20px 0}.triple{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#203442;padding:14px}button,select{font:inherit;padding:10px}h2{overflow-wrap:anywhere}@media(max-width:650px){.triple{grid-template-columns:1fr}body{padding:12px}}output{display:block;margin:14px 0}</style><h1>Three-way conflict review</h1><p>Choose a side for each conflict. Download a replay plan, then use --replay with the same source snapshots. No source is edited; this is a local merge simulation. '
+        + escape(privacy)
+        + "</p>"
         + "".join(parts)
         + '<button id="download">Download replay plan</button><output id="status" role="status"></output><script type="application/json" id="report">'
         + payload

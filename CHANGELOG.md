@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 - 2026-10-15
+
+- Add opt-in value-redacted JSON, Markdown and HTML reviews that omit source values and merged application data.
+- Retain presence/absence, paths, classifications, counts, fingerprints and hash-bound local/remote choices.
+- Label redacted artifacts explicitly and document visible metadata and replay privacy limits.
+
 ## 1.1.0 - 2026-09-07
 
 - Fix deletion-versus-null handling and add visual conflict choices, hash-bound replay and opt-in keyed-array identity contracts.
