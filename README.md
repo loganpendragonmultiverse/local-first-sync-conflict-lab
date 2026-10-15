@@ -47,3 +47,24 @@ sync-conflict-lab base.json local.json remote.json --format html --output review
 ```
 
 The HTML review shows base/local/remote values with explicit absence indicators and lets you download selected local/remote decisions. --replay accepts that version 1 plan only when all three input SHA-256 hashes match, using manual policy and the saved keyed_arrays contract. --keyed-arrays maps JSON pointers (root or object-field arrays) to a non-empty string identity field; duplicate/missing identities are rejected. Keyed arrays merge fields by identity, retain base order then new local/remote IDs, and explicitly ignore reorder-only changes. Other arrays stay atomic. Deletion remains distinct from null and resolved deletions no longer become unserializable copied sentinels. Reports contain source values and remain local simulations, not production synchronization engines.
+
+## Value-redacted review reports (1.2)
+
+`sync-conflict-lab base.json local.json remote.json --redact-values --format html --output review.html`
+produces a metadata-only review. The same flag applies to JSON and Markdown. Source
+values and the merged snapshot are omitted, including values in embedded HTML data.
+Paths, classifications, presence/absence, counts, selected sides, keyed-array contracts
+and fingerprints remain. Null is present; deletion is absent. HTML still downloads a
+hash-bound local/remote choice plan, which can be replayed with the original inputs.
+
+Redacted reports are labeled `redacted-review-report`; `merge_available` is false
+because they contain no merged application data. `simulated_merge_available` retains
+the policy outcome, and a result fingerprint remains when computed. Default detailed
+reports and replay plans keep their existing format. Replay normally produces a
+detailed report; pass `--redact-values` again for a redacted replay report.
+
+Redaction does not hide object keys, JSON Pointer paths, keyed-array identity values,
+identity field names, counts or hashes. Treat those as potentially sensitive metadata;
+hashes are not encryption and can be guessed for low-entropy inputs. This flag omits
+source values, not all information about a snapshot, and makes no claim that a report
+is safe for unrestricted publication. It does not edit or upload source snapshots.

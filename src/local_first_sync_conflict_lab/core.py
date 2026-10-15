@@ -84,14 +84,33 @@ def _merge(
     if local == remote:
         if local != base:
             changes.append(
-                {"path": path, "classification": "same-change", "value": _display(local)}
+                {
+                    "path": path,
+                    "classification": "same-change",
+                    "value": _display(local),
+                    "present": local is not MISSING,
+                }
             )
         return MISSING if local is MISSING else copy.deepcopy(local)
     if local == base:
-        changes.append({"path": path, "classification": "remote-only", "value": _display(remote)})
+        changes.append(
+            {
+                "path": path,
+                "classification": "remote-only",
+                "value": _display(remote),
+                "present": remote is not MISSING,
+            }
+        )
         return MISSING if remote is MISSING else copy.deepcopy(remote)
     if remote == base:
-        changes.append({"path": path, "classification": "local-only", "value": _display(local)})
+        changes.append(
+            {
+                "path": path,
+                "classification": "local-only",
+                "value": _display(local),
+                "present": local is not MISSING,
+            }
+        )
         return MISSING if local is MISSING else copy.deepcopy(local)
 
     selected = choices.get(path) or (
@@ -129,6 +148,8 @@ def simulate(
     remote_updated_at: str | None = None,
     choices: dict[str, str] | None = None,
     keyed_arrays: dict[str, str] | None = None,
+    *,
+    redact_values: bool = False,
 ) -> dict[str, Any]:
     if strategy not in STRATEGIES:
         raise ValueError(f"strategy must be one of: {', '.join(sorted(STRATEGIES))}")
@@ -204,6 +225,33 @@ def simulate(
     if report["summary"]["merge_available"]:
         report["merged"] = merged
         report["merged_sha256"] = _digest(merged)
+    if redact_values:
+        # Construct an explicit metadata-only report; do not recursively replace values
+        # inside source objects, which could accidentally preserve new value fields.
+        report["report_mode"] = "value-redacted"
+        report["artifact_kind"] = "redacted-review-report"
+        report["summary"]["simulated_merge_available"] = report["summary"]["merge_available"]
+        report["summary"]["merge_available"] = False
+        report.pop("merged", None)
+        report["changes"] = [
+            {
+                "path": item["path"],
+                "classification": item["classification"],
+                "present": item["present"],
+            }
+            for item in changes
+        ]
+        report["changes"].sort(key=lambda item: item["path"])
+        report["conflicts"] = [
+            {key: item[key] for key in ("path", "classification", "presence", "resolution")}
+            for item in report["conflicts"]
+        ]
+        report["privacy"] = (
+            "Source values and merged application data are omitted. Paths, keyed identities, identity field names, choices and fingerprints remain visible. Hashes are not encryption."
+        )
+    else:
+        for item in report["changes"]:
+            item.pop("present", None)
     return report
 
 
@@ -223,6 +271,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         "## Conflicts",
         "",
     ]
+    if report.get("report_mode") == "value-redacted":
+        lines += [
+            "Value-redacted review report; not merged application data.",
+            report["privacy"],
+            "",
+        ]
     lines += [
         f"- `{item['path'] or '/'}` — {item['resolution']}" for item in report["conflicts"]
     ] or ["- None"]
