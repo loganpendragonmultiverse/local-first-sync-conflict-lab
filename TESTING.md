@@ -13,3 +13,13 @@ Run the complete existing suite plus the new regression fixtures. Confirm the do
 Check sentinel values are absent from JSON, Markdown, HTML text and embedded payloads. Check downloaded choice plans remain value-free and hash-bound; null/deletion, keyed arrays, counts, default reports and replay stay correct.
 
 The downloaded-plan regression executes the actual HTML script with Node 22 and a minimal DOM/download harness. CI installs Node; Python-only environments skip this one browser-script test. Run it through pytest with Node available.
+
+## 1.2.1 — typed and bounded review inputs
+
+JSON booleans are distinct from numeric values during recursive comparison, including atomic arrays. Integer and floating spellings of the same finite JSON number compare equally; fingerprints still bind canonical serialized inputs. Selected conflict values are copied into results. Keyed-array contracts must be valid JSON Pointers addressing arrays in at least one snapshot, and every present target must be an array. Contracts apply only to root arrays or object-field arrays; array-contained traversal is not inferred. A missing contract path is an error rather than a silent fallback.
+
+Files are limited to 10 MiB, JSON to 128 nesting levels and integers to 1,000 digits. Duplicate object keys, nonfinite numbers, malformed replay plans, cyclic/non-JSON library values and symlink paths are rejected. Reports require a new destination in an existing directory and use exclusive creation. These checks prevent accidental replacement; they do not claim hostile concurrent filesystem guarantees.
+
+Markdown uses literal path spans and a content-safe JSON fence. HTML starts with existing resolved sides selected, so its downloaded manual replay plan preserves those decisions; users can change or clear each choice. Detailed and value-redacted reports retain their documented privacy boundaries. Installed examples are under `share/doc/local-first-sync-conflict-lab/examples` in the installation prefix. Source input files are never updated.
+
+Run the original suite with Node 22 available so both actual HTML download-script regressions execute. New cases cover nested boolean/numeric comparisons, root/escaped keyed contracts, malformed contracts/replay, strict JSON and destination races. Exact tagged wheel and source-distribution acceptance must use installed imports and console commands outside the checkout; test the installed examples and all three browser engines at desktop/mobile widths before release.

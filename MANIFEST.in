@@ -2,3 +2,5 @@ include README.md LICENSE CHANGELOG.md
 recursive-include examples *.json
 
 recursive-include tests *.mjs
+
+include DEVELOPMENT.md TESTING.md
