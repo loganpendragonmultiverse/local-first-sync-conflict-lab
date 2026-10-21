@@ -23,3 +23,7 @@ Files are limited to 10 MiB, JSON to 128 nesting levels and integers to 1,000 di
 Markdown uses literal path spans and a content-safe JSON fence. HTML starts with existing resolved sides selected, so its downloaded manual replay plan preserves those decisions; users can change or clear each choice. Detailed and value-redacted reports retain their documented privacy boundaries. Installed examples are under `share/doc/local-first-sync-conflict-lab/examples` in the installation prefix. Source input files are never updated.
 
 Run the original suite with Node 22 available so both actual HTML download-script regressions execute. New cases cover nested boolean/numeric comparisons, root/escaped keyed contracts, malformed contracts/replay, strict JSON and destination races. Exact tagged wheel and source-distribution acceptance must use installed imports and console commands outside the checkout; test the installed examples and all three browser engines at desktop/mobile widths before release.
+
+## 1.2.2: Release artifact verification
+
+The tag workflow checks that the stable tag, project metadata and runtime version agree before building. It runs the full existing quality suite and dependency audit, verifies wheel and source-distribution metadata, and writes SHA256SUMS from those exact two payloads. Native PR/main checks and independent installed-artifact acceptance remain required before publication. This maintenance release preserves runtime behavior and supported Python versions.
