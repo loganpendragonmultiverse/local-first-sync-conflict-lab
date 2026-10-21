@@ -5,12 +5,13 @@ import json
 import sys
 from pathlib import Path
 
+from ._io import load_json, preflight_output, write_new_text
 from .core import STRATEGIES, _digest, render_json, render_markdown, simulate
 from .review import render_html
 
 
 def _load(path: Path) -> object:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return load_json(path)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,12 +37,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
+        if args.output:
+            preflight_output(args.output)
         base, local, remote = _load(args.base), _load(args.local), _load(args.remote)
         keyed = _load(args.keyed_arrays) if args.keyed_arrays else {}
         choices: object = {}
         if args.replay:
             replay = _load(args.replay)
-            if not isinstance(replay, dict) or replay.get("version") != 1:
+            if (
+                not isinstance(replay, dict)
+                or type(replay.get("version")) is not int
+                or replay.get("version") != 1
+                or set(replay) != {"version", "input_sha256", "choices", "keyed_arrays"}
+            ):
                 raise ValueError("replay must be a version 1 object")
             if replay.get("input_sha256") != {
                 "base": _digest(base),
@@ -78,9 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             else render_markdown(report)
         )
         if args.output:
-            if args.output.exists():
-                raise ValueError(f"output already exists: {args.output}")
-            args.output.write_text(rendered, encoding="utf-8")
+            write_new_text(args.output, rendered)
         else:
             sys.stdout.write(rendered)
     except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:

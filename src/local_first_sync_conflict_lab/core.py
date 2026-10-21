@@ -3,8 +3,11 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
+
+from ._io import code_span, json_fence, validate_json
 
 PROJECT = "local-first-sync-conflict-lab"
 MISSING = object()
@@ -12,24 +15,50 @@ STRATEGIES = {"manual", "prefer-local", "prefer-remote", "newest-snapshot"}
 
 
 def _digest(value: Any) -> str:
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    validate_json(value)
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
 def _parse_time(value: str | None, label: str) -> datetime | None:
     if value is None:
         return None
+    if not isinstance(value, str):
+        raise TypeError(f"{label} must be a timestamp string")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"{label} must be an ISO 8601 timestamp") from exc
     if parsed.tzinfo is None:
         raise ValueError(f"{label} must include a UTC offset")
-    return parsed.astimezone(timezone.utc)
+    try:
+        return parsed.astimezone(timezone.utc)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(f"{label} cannot be represented as a UTC timestamp") from exc
 
 
 def _display(value: Any) -> Any:
     return {"missing": True} if value is MISSING else copy.deepcopy(value)
+
+
+def _equal(left: Any, right: Any) -> bool:
+    if left is MISSING or right is MISSING:
+        return left is right
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(_equal(left[k], right[k]) for k in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(_equal(a, b) for a, b in zip(left, right))
+    return bool(left == right)
+
+
+def _pointer(path: str) -> bool:
+    if path and not path.startswith("/"):
+        return False
+    return all(part in {"0", "1"} for part in re.findall(r"~(.)?", path))
 
 
 def _merge(
@@ -81,8 +110,8 @@ def _merge(
                 result[key] = child
         return result
 
-    if local == remote:
-        if local != base:
+    if _equal(local, remote):
+        if not _equal(local, base):
             changes.append(
                 {
                     "path": path,
@@ -92,7 +121,7 @@ def _merge(
                 }
             )
         return MISSING if local is MISSING else copy.deepcopy(local)
-    if local == base:
+    if _equal(local, base):
         changes.append(
             {
                 "path": path,
@@ -102,7 +131,7 @@ def _merge(
             }
         )
         return MISSING if remote is MISSING else copy.deepcopy(remote)
-    if remote == base:
+    if _equal(remote, base):
         changes.append(
             {
                 "path": path,
@@ -136,7 +165,7 @@ def _merge(
             "resolution": selected or "unresolved",
         }
     )
-    return resolution
+    return MISSING if resolution is MISSING else copy.deepcopy(resolution)
 
 
 def simulate(
@@ -151,23 +180,34 @@ def simulate(
     *,
     redact_values: bool = False,
 ) -> dict[str, Any]:
-    if strategy not in STRATEGIES:
+    if not isinstance(strategy, str) or strategy not in STRATEGIES:
         raise ValueError(f"strategy must be one of: {', '.join(sorted(STRATEGIES))}")
     if not all(isinstance(item, (dict, list)) for item in (base, local, remote)):
         raise TypeError("base, local, and remote snapshots must be JSON objects or arrays")
+    for snapshot in (base, local, remote):
+        validate_json(snapshot)
+    if not isinstance(redact_values, bool):
+        raise TypeError("redact_values must be boolean")
     choices = {} if choices is None else choices
     keyed_arrays = {} if keyed_arrays is None else keyed_arrays
     if not isinstance(choices, dict) or any(
-        not isinstance(p, str) or v not in ("local", "remote") for p, v in choices.items()
+        not isinstance(p, str) or not _pointer(p) or v not in ("local", "remote")
+        for p, v in choices.items()
     ):
         raise ValueError("choices must map conflict JSON pointers to local or remote")
     if not isinstance(keyed_arrays, dict) or any(
-        not isinstance(p, str) or not isinstance(k, str) or not k for p, k in keyed_arrays.items()
+        not isinstance(p, str) or not _pointer(p) or not isinstance(k, str) or not k
+        for p, k in keyed_arrays.items()
     ):
         raise ValueError("keyed_arrays must map JSON pointers to non-empty identity field names")
 
+    matched_arrays: set[str] = set()
+
     def validate_arrays(value: Any, path: str = "") -> None:
-        if path in keyed_arrays and isinstance(value, list):
+        if path in keyed_arrays:
+            if not isinstance(value, list):
+                raise ValueError("keyed-array contract must address arrays when present")
+            matched_arrays.add(path)
             identity = keyed_arrays[path]
             keys = []
             for item in value:
@@ -186,6 +226,8 @@ def simulate(
 
     for snapshot in (base, local, remote):
         validate_arrays(snapshot)
+    if set(keyed_arrays) - matched_arrays:
+        raise ValueError("keyed-array contract path does not address any snapshot array")
     newest: str | None = None
     local_time = _parse_time(local_updated_at, "local_updated_at")
     remote_time = _parse_time(remote_updated_at, "remote_updated_at")
@@ -256,7 +298,7 @@ def simulate(
 
 
 def render_json(report: dict[str, Any]) -> str:
-    return json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    return json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -278,7 +320,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
         ]
     lines += [
-        f"- `{item['path'] or '/'}` — {item['resolution']}" for item in report["conflicts"]
+        f"- {code_span(item['path'] or '/')} — {item['resolution']}" for item in report["conflicts"]
     ] or ["- None"]
-    lines += ["", "## Evidence", "", f"```json\n{render_json(report).rstrip()}\n```", ""]
+    lines += ["", "## Evidence", "", json_fence(render_json(report)), ""]
     return "\n".join(lines)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1 - 2026-10-21
+
+- Distinguish booleans from numbers in three-way comparisons and reject ineffective keyed-array contracts.
+- Validate bounded strict JSON and replay plans, and preserve source files and existing destinations.
+- Preserve resolved choices in HTML downloads and render literal Markdown with safe evidence fences.
+- Ship installed examples and complete release documentation.
+
 ## 1.2.0 - 2026-10-15
 
 - Add opt-in value-redacted JSON, Markdown and HTML reviews that omit source values and merged application data.

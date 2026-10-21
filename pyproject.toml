@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-first-sync-conflict-lab"
-version = "1.2.0"
+version = "1.2.1"
 description = "Simulate and explain three-way JSON synchronization conflicts locally."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,3 +35,7 @@ omit = ["src/*/__main__.py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=local_first_sync_conflict_lab --cov-branch --cov-report=term-missing --cov-fail-under=90"
+
+[tool.setuptools.data-files]
+"share/doc/local-first-sync-conflict-lab" = ["README.md", "CHANGELOG.md", "DEVELOPMENT.md", "TESTING.md", "LICENSE"]
+"share/doc/local-first-sync-conflict-lab/examples" = ["examples/base.json", "examples/local.json", "examples/remote.json"]
