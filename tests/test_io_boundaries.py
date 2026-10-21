@@ -29,7 +29,8 @@ def test_strict_json_refuses_ambiguous_or_nonfinite_input(tmp_path, raw):
 
 def test_json_limits_and_valid_unicode(tmp_path, monkeypatch):
     path = tmp_path / "input.json"
-    path.write_text('{"unicode":"é","fraction":1.25}')
+    path.write_text('{"unicode":"é","fraction":1.25}', encoding="utf-8")
+    assert b"\xc3\xa9" in path.read_bytes()
     assert _io.load_json(path) == {"unicode": "é", "fraction": 1.25}
     monkeypatch.setattr(_io, "MAX_JSON_BYTES", 8)
     with pytest.raises(ValueError, match="limit"):

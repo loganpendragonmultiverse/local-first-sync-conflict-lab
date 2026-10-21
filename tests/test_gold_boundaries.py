@@ -1,5 +1,4 @@
 import json
-import re
 import subprocess
 from pathlib import Path
 
@@ -104,7 +103,31 @@ def test_resolved_policy_is_preselected_in_actual_download_script(tmp_path):
         pytest.skip("Node required")
     report = simulate({"x": 0}, {"x": 1}, {"x": 2}, strategy="prefer-remote")
     html = render_html(report)
-    payload = re.findall(r"<script>(.*?)</script>", html, re.DOTALL)[0]
+    from html.parser import HTMLParser
+
+    class ExecutableScripts(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.active = False
+            self.scripts = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "script" and dict(attrs).get("type") != "application/json":
+                self.active = True
+                self.scripts.append("")
+
+        def handle_data(self, data):
+            if self.active:
+                self.scripts[-1] += data
+
+        def handle_endtag(self, tag):
+            if tag == "script":
+                self.active = False
+
+    parser = ExecutableScripts()
+    parser.feed(html)
+    assert len(parser.scripts) == 1
+    payload = parser.scripts[0]
     harness = """const assert=require('node:assert/strict');const select={dataset:{index:'0'},value:''};const nodes={report:{textContent:process.argv[1]},download:{},status:{}};global.document={getElementById:id=>nodes[id],querySelectorAll:()=>[select],createElement:()=>({click(){}})};global.URL={createObjectURL:()=>'',revokeObjectURL(){}};global.Blob=class{constructor(parts){global.saved=JSON.parse(parts[0]);}};global.setTimeout=()=>{};"""
     checks = "assert.equal(select.value,'remote');nodes.download.onclick();assert.equal(global.saved.choices['/x'],'remote');"
     subprocess.run(

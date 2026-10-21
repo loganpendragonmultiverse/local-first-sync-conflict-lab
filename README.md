@@ -20,7 +20,7 @@ Objects are compared recursively by JSON Pointer path. Independent field changes
 
 ## Privacy and limitations
 
-Everything runs locally without accounts, telemetry, storage, or network requests. Reports may reproduce conflicting input values so they can contain sensitive data and must be protected accordingly.
+Everything runs locally without accounts, telemetry, cloud storage, or network requests. Reports may reproduce conflicting input values so they can contain sensitive data and must be protected accordingly.
 
 This is a deterministic policy simulator, not a production synchronization engine or CRDT. It does not infer identities inside arrays, validate an application's schema, guarantee convergence across repeated real-world operations, contact a server, or write merged data back into an application.
 
