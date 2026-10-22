@@ -12,7 +12,7 @@ sync-conflict-lab examples/base.json examples/local.json examples/remote.json
 sync-conflict-lab examples/base.json examples/local.json examples/remote.json --strategy prefer-local --format json --output result.json
 ```
 
-Exit code `1` means manual conflicts remain unresolved, `0` means the selected policy produced a complete simulated result, and `2` means the inputs or command were invalid. Existing reports are never overwritten.
+Exit code `1` means manual conflicts remain unresolved or an enabled application rule failed, `0` means the selected policy produced a complete simulated result satisfying any enabled rule, and `2` means the inputs or command were invalid. Without an application rule, exit `0` makes no business-validity claim. Existing reports are never overwritten.
 
 ## Merge model
 
@@ -22,7 +22,7 @@ Objects are compared recursively by JSON Pointer path. Independent field changes
 
 Everything runs locally without accounts, telemetry, cloud storage, or network requests. Reports may reproduce conflicting input values so they can contain sensitive data and must be protected accordingly.
 
-This is a deterministic policy simulator, not a production synchronization engine or CRDT. It does not infer identities inside arrays, validate an application's schema, guarantee convergence across repeated real-world operations, contact a server, or write merged data back into an application.
+This is a deterministic policy simulator, not a production synchronization engine or CRDT. It does not infer identities inside arrays, validate an application's full schema, guarantee convergence across repeated real-world operations, contact a server, or write merged data back into an application.
 
 ## Development
 
@@ -80,3 +80,46 @@ Markdown uses literal path spans and a content-safe JSON fence. HTML starts with
 ## 1.2.2: Release artifact verification
 
 The tag workflow checks that the stable tag, project metadata and runtime version agree before building. It runs the full existing quality suite and dependency audit, verifies wheel and source-distribution metadata, and writes SHA256SUMS from those exact two payloads. Native PR/main checks and independent installed-artifact acceptance remain required before publication. This maintenance release preserves runtime behavior and supported Python versions.
+
+## Booking demo and explicit application validation (1.3)
+
+Independent edits can each be valid while their combined result violates an application
+invariant. The booking fixtures start at **09:00–17:00**. Local changes start to
+**14:00** (valid against 17:00); remote changes end to **12:00** (valid against
+09:00). The field merge has zero conflicts but combines into **14:00–12:00**.
+
+```bash
+# Existing behavior: exposes the field merge, with no business-validity claim.
+sync-conflict-lab examples/booking-base.json examples/booking-local.json examples/booking-remote.json --format json
+# Opt in: invalid, exits 1, and withholds the merged snapshot and its fingerprint.
+sync-conflict-lab examples/booking-base.json examples/booking-local.json examples/booking-remote.json --application-rule booking-order --format html --output booking-review.html
+```
+
+Library callers use `simulate(base, local, remote, application_rule="booking-order")`.
+This single built-in rule requires a root object with `start` and `end` strings in
+zero-padded 24-hour `HH:MM` format and `start < end` on the same day. Missing,
+malformed, equal or reversed times fail. This is a small post-merge check, not a
+schema engine: no timezone, date, overnight, nested booking or general domain
+inference is provided. Source snapshots are not validated automatically; the rule
+checks only a complete candidate after conflict resolution.
+
+Enabled reports include `application_validation` with the rule, `status` (`valid`,
+`invalid`, or `not-evaluated` when field conflicts remain), and value-free issues.
+`summary.application_valid` is respectively `true`, `false`, or `null`. Invalid or
+incomplete results have `merge_available: false` and no `merged` or `merged_sha256`.
+A field-conflict-free result alone never establishes business validity. A `valid`
+status means only that this one rule passed, not that the data meets all business
+requirements. Reports without the option retain their existing fields and behavior.
+
+JSON, Markdown and HTML expose validation status. HTML conflict-choice changes
+require replay to revalidate; the displayed status describes the original simulation.
+Downloads from enabled reviews use a strict version 2 replay plan that saves the rule
+alongside hashes, keyed-array contracts and choices. `--replay` restores and reruns
+that rule, and rejects a separate `--application-rule` override. Version 1 exports
+and replay remain unchanged for reviews without validation. Older versions reject
+version 2 plans rather than silently dropping validation.
+
+`--redact-values` still removes source values and merged data; rule names, status and
+generic issues remain visible. Detailed reports may include booking values in change
+or conflict evidence. All existing path/identity/hash privacy caveats apply. This
+remains a local simulator, not a production sync or booking system.

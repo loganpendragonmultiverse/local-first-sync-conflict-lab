@@ -179,6 +179,7 @@ def simulate(
     keyed_arrays: dict[str, str] | None = None,
     *,
     redact_values: bool = False,
+    application_rule: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(strategy, str) or strategy not in STRATEGIES:
         raise ValueError(f"strategy must be one of: {', '.join(sorted(STRATEGIES))}")
@@ -188,6 +189,8 @@ def simulate(
         validate_json(snapshot)
     if not isinstance(redact_values, bool):
         raise TypeError("redact_values must be boolean")
+    if application_rule is not None and application_rule != "booking-order":
+        raise ValueError("application_rule must be booking-order or None")
     choices = {} if choices is None else choices
     keyed_arrays = {} if keyed_arrays is None else keyed_arrays
     if not isinstance(choices, dict) or any(
@@ -264,6 +267,31 @@ def simulate(
         "conflicts": sorted(conflicts, key=lambda item: item["path"]),
         "boundary": "Arrays are atomic unless explicitly keyed by a string identity. Scalars remain atomic; application semantics are not inferred.",
     }
+    if application_rule is not None:
+        issues = []
+        status = "not-evaluated"
+        if report["summary"]["merge_available"]:
+            status = "valid"
+            if not isinstance(merged, dict) or any(
+                not isinstance(merged.get(field), str)
+                or re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", merged[field]) is None
+                for field in ("start", "end")
+            ):
+                issues.append("booking requires root start and end strings in HH:MM format")
+            elif merged["start"] >= merged["end"]:
+                issues.append("booking start must be before end on the same day")
+            if issues:
+                status = "invalid"
+                report["summary"]["merge_available"] = False
+        report["application_validation"] = {
+            "rule": application_rule,
+            "status": status,
+            "issues": issues,
+            "scope": "Post-merge root booking only; no timezone, overnight or schema inference.",
+        }
+        report["summary"]["application_valid"] = (
+            status == "valid" if status != "not-evaluated" else None
+        )
     if report["summary"]["merge_available"]:
         report["merged"] = merged
         report["merged_sha256"] = _digest(merged)
@@ -313,6 +341,14 @@ def render_markdown(report: dict[str, Any]) -> str:
         "## Conflicts",
         "",
     ]
+    if "application_validation" in report:
+        validation = report["application_validation"]
+        lines += [
+            f"Application validation ({validation['rule']}): {validation['status']}",
+            "A field-conflict-free merge does not establish business validity.",
+            *validation["issues"],
+            "",
+        ]
     if report.get("report_mode") == "value-redacted":
         lines += [
             "Value-redacted review report; not merged application data.",

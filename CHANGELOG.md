@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-10-22
+
+- Demonstrate independently valid booking edits that combine into invalid start/end ordering.
+- Add opt-in `booking-order` post-merge validation with explicit valid/invalid/not-evaluated status, withheld invalid results and CLI exit 1.
+- Preserve the application rule in strict version 2 HTML replay exports; keep default behavior and version 1 plans compatible.
+- Cover report formats, redaction, source/output protection and real HTML download/replay behavior; ship booking examples in distributions.
+
 ## 1.2.2 — 2026-10-21
 
 - Require tag, package and runtime version identity before release builds.

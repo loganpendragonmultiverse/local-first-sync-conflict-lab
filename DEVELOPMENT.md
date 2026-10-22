@@ -27,3 +27,19 @@ Markdown uses literal path spans and a content-safe JSON fence. HTML starts with
 ## 1.2.2: Release artifact verification
 
 The tag workflow checks that the stable tag, project metadata and runtime version agree before building. It runs the full existing quality suite and dependency audit, verifies wheel and source-distribution metadata, and writes SHA256SUMS from those exact two payloads. Native PR/main checks and independent installed-artifact acceptance remain required before publication. This maintenance release preserves runtime behavior and supported Python versions.
+
+## 1.3.0: Booking application rule
+
+Use the opt-in root `booking-order` rule after complete field merging. It requires
+same-day zero-padded HH:MM start < end; it deliberately provides no general schema
+or timezone engine. Invalid candidates are withheld and exit 1. Unresolved field
+conflicts leave validation not-evaluated. Default reports and version 1 replay are
+compatible; enabled HTML exports use strict version 2 plans retaining the rule.
+
+Regression acceptance covers independently valid edits combining into an invalid
+booking, valid combined state, malformed/missing/equal/overnight times, unresolved
+conflicts, all report formats, redaction, CLI exit codes, immutable sources and
+outputs, and execution of the actual HTML download script followed by CLI replay.
+Run the full quality suite, audit, build, installed wheel/source acceptance and
+browser engines at desktop/mobile sizes before publishing. All simulator scope
+and metadata privacy boundaries remain in effect.
