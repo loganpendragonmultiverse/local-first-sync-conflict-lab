@@ -35,6 +35,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="omit source values and merged data from JSON, Markdown and HTML review reports",
     )
+    parser.add_argument(
+        "--application-rule",
+        choices=("booking-order",),
+        help="validate root start/end HH:MM ordering after merge; invalid result exits 1",
+    )
     args = parser.parse_args(argv)
     try:
         if args.output:
@@ -42,25 +47,33 @@ def main(argv: list[str] | None = None) -> int:
         base, local, remote = _load(args.base), _load(args.local), _load(args.remote)
         keyed = _load(args.keyed_arrays) if args.keyed_arrays else {}
         choices: object = {}
+        application_rule = args.application_rule
         if args.replay:
             replay = _load(args.replay)
             if (
                 not isinstance(replay, dict)
                 or type(replay.get("version")) is not int
-                or replay.get("version") != 1
-                or set(replay) != {"version", "input_sha256", "choices", "keyed_arrays"}
+                or replay.get("version") not in (1, 2)
+                or set(replay)
+                != (
+                    {"version", "input_sha256", "choices", "keyed_arrays"}
+                    | ({"application_rule"} if replay.get("version") == 2 else set())
+                )
             ):
-                raise ValueError("replay must be a version 1 object")
+                raise ValueError("replay must be a version 1 or 2 object")
             if replay.get("input_sha256") != {
                 "base": _digest(base),
                 "local": _digest(local),
                 "remote": _digest(remote),
             }:
                 raise ValueError("replay source hashes differ")
-            if args.strategy != "manual" or args.keyed_arrays:
+            if args.strategy != "manual" or args.keyed_arrays or args.application_rule:
                 raise ValueError(
-                    "replay requires manual strategy and uses its own keyed-array contract"
+                    "replay requires manual strategy and uses its own keyed-array and application-rule contracts"
                 )
+            application_rule = replay.get("application_rule")
+            if replay["version"] == 2 and application_rule != "booking-order":
+                raise ValueError("version 2 replay requires booking-order application_rule")
             choices, keyed = replay.get("choices"), replay.get("keyed_arrays")
             if not isinstance(choices, dict) or not isinstance(keyed, dict):
                 raise ValueError("replay requires choices and keyed_arrays objects")
@@ -77,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
             choices=choices,
             keyed_arrays=keyed,
             redact_values=args.redact_values,
+            application_rule=application_rule,
         )
         rendered = (
             render_json(report)
@@ -92,4 +106,11 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    return 1 if report["summary"]["unresolved_conflicts"] else 0
+    return (
+        1
+        if (
+            report["summary"]["unresolved_conflicts"]
+            or report["summary"].get("application_valid") is False
+        )
+        else 0
+    )
